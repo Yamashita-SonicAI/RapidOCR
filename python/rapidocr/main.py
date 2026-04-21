@@ -92,6 +92,16 @@ class RapidOCR:
 
         self.cfg = cfg
 
+        # VisRes を __init__ で一度だけ生成してインスタンスにキャッシュ。
+        # __call__ 毎に self.cfg.Global.* を参照すると omegaconf が
+        # ConfigAttributeError を内部送出→握りつぶすため、traceback/frame が
+        # 循環参照として蓄積し cyclic GC の STW スパイク要因になる。
+        self._viser = VisRes(
+            text_score=cfg.Global.text_score,
+            lang_type=cfg.Rec.lang_type,
+            font_path=cfg.Global.font_path,
+        )
+
     def __call__(
         self,
         img_content: Union[str, np.ndarray, bytes, Path],
@@ -231,11 +241,7 @@ class RapidOCR:
             char_scores=rec_res.char_scores if rec_res.char_scores else None,
             word_results=rec_res.word_results,
             elapse_list=[det_res.elapse, cls_res.elapse, rec_res.elapse],
-            viser=VisRes(
-                text_score=self.cfg.Global.text_score,
-                lang_type=self.cfg.Rec.lang_type,
-                font_path=self.cfg.Global.font_path,
-            ),
+            viser=self._viser,
         )
 
         ocr_res = self.filter_by_text_score(ocr_res)
