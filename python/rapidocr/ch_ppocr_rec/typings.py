@@ -37,6 +37,8 @@ class TextRecOutput:
     imgs: Optional[List[np.ndarray]] = None
     txts: Optional[Tuple[str]] = None
     scores: List[float] = field(default_factory=lambda: [1.0])
+    # 行ごとの文字単位信頼度。len(char_scores[i]) == len(txts[i])
+    char_scores: Tuple[List[float], ...] = field(default_factory=tuple)
     word_results: Tuple[Tuple[str, float, Optional[List[List[int]]]]] = (
         ("", 1.0, None),
     )

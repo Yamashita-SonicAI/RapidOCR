@@ -1,12 +1,10 @@
 # -*- encoding: utf-8 -*-
 # @Author: SWHL
 # @Contact: liekkaskono@163.com
-import sys
 from pathlib import Path
 from typing import List, Union
 
 import setuptools
-from get_pypi_latest_version import GetPyPiLatestVersion
 
 
 def read_txt(txt_path: Union[Path, str]) -> List[str]:
@@ -26,19 +24,8 @@ def get_readme():
 
 MODULE_NAME = "rapidocr"
 
-obtainer = GetPyPiLatestVersion()
-try:
-    latest_version = obtainer(MODULE_NAME)
-except Exception as e:
-    latest_version = "0.0.0"
-VERSION_NUM = obtainer.version_add_one(latest_version, add_patch=True)
-
-if len(sys.argv) > 2:
-    match_str = " ".join(sys.argv[2:])
-    matched_versions = obtainer.extract_version(match_str)
-    if matched_versions:
-        VERSION_NUM = matched_versions
-sys.argv = sys.argv[:2]
+# ローカル fork 用にバージョン固定（本家は PyPI から最新取得してインクリメントする仕様）
+VERSION_NUM = "0.0.0+local"
 
 project_urls = {
     "Documentation": "https://rapidai.github.io/RapidOCRDocs",
@@ -59,8 +46,7 @@ setuptools.setup(
     license="Apache-2.0",
     include_package_data=True,
     install_requires=read_txt("requirements.txt"),
-    package_dir={"": MODULE_NAME},
-    packages=setuptools.find_namespace_packages(where=MODULE_NAME),
+    packages=setuptools.find_namespace_packages(include=[MODULE_NAME, f"{MODULE_NAME}.*"]),
     package_data={"": ["*.onnx", "*.yaml", "*.txt"]},
     keywords=[
         "ocr,text_detection,text_recognition,db,onnxruntime,paddleocr,openvino,rapidocr"

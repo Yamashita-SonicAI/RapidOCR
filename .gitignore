@@ -157,3 +157,7 @@ long1.jpg
 
 .DS_Store
 *.npy
+
+# local model weights (not tracked; downloaded/placed at runtime)
+python/rapidocr/models/*.pth
+python/rapidocr/models/ppocrv5_dict.txt

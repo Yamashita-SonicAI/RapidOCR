@@ -187,6 +187,10 @@ class RapidOCR:
             rec_res.txts = filter_by_indices(rec_res.txts, valid_ids)
             rec_res.word_results = filter_by_indices(rec_res.word_results, valid_ids)
             rec_res.scores = filter_by_indices(rec_res.scores, valid_ids)
+            if rec_res.char_scores:
+                rec_res.char_scores = tuple(
+                    filter_by_indices(list(rec_res.char_scores), valid_ids)
+                )
 
             cropped_img_list = filter_by_indices(cropped_img_list, valid_ids)
 
@@ -224,6 +228,7 @@ class RapidOCR:
             boxes=det_res.boxes,
             txts=rec_res.txts,
             scores=rec_res.scores,
+            char_scores=rec_res.char_scores if rec_res.char_scores else None,
             word_results=rec_res.word_results,
             elapse_list=[det_res.elapse, cls_res.elapse, rec_res.elapse],
             viser=VisRes(
@@ -328,6 +333,8 @@ class RapidOCR:
 
     def filter_by_text_score(self, ocr_res: RapidOCROutput) -> RapidOCROutput:
         filter_boxes, filter_txts, filter_scores, filter_words = [], [], [], []
+        filter_char_scores: List[List[float]] = []
+        has_char_scores = ocr_res.char_scores is not None
         for i, (box, txt, score) in enumerate(
             zip(ocr_res.boxes, ocr_res.txts, ocr_res.scores)
         ):
@@ -340,11 +347,15 @@ class RapidOCR:
             filter_boxes.append(box)
             filter_txts.append(txt)
             filter_scores.append(score)
+            if has_char_scores:
+                filter_char_scores.append(ocr_res.char_scores[i])
 
         ocr_res.boxes = np.array(filter_boxes)
         ocr_res.txts = tuple(filter_txts)
         ocr_res.scores = tuple(filter_scores)
         ocr_res.word_results = tuple(filter_words)
+        if has_char_scores:
+            ocr_res.char_scores = tuple(filter_char_scores)
         return ocr_res
 
 

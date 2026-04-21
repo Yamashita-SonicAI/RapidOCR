@@ -21,14 +21,14 @@ class CTCLabelDecode:
 
     def __call__(
         self, preds: np.ndarray, return_word_box: bool = False, **kwargs
-    ) -> Tuple[List[Tuple[str, float]], List[Any]]:
+    ) -> Tuple[List[Tuple[str, float]], List[Any], List[List[float]]]:
         preds_idx = preds.argmax(axis=2)
         preds_prob = preds.max(axis=2)
 
         wh_ratio_list = kwargs.get("wh_ratio_list", (1.0,))
         max_wh_ratio = kwargs.get("max_wh_ratio", 1.0)
 
-        line_results, word_results = self.decode(
+        line_results, word_results, char_scores_list = self.decode(
             preds_idx,
             preds_prob,
             return_word_box,
@@ -36,7 +36,7 @@ class CTCLabelDecode:
             max_wh_ratio,
             remove_duplicate=True,
         )
-        return line_results, word_results
+        return line_results, word_results, char_scores_list
 
     def get_character(
         self,
@@ -87,8 +87,10 @@ class CTCLabelDecode:
         wh_ratio_list: Tuple[float] = (1.0,),
         max_wh_ratio: float = 1.0,
         remove_duplicate: bool = False,
-    ) -> Tuple[List[Tuple[str, float]], List[WordInfo]]:
+    ) -> Tuple[List[Tuple[str, float]], List[WordInfo], List[List[float]]]:
         result_list, result_words_list = [], []
+        # 文字単位の信頼度（各行 len(text) と同じ長さ）
+        char_scores_list: List[List[float]] = []
         ignored_tokens = self.get_ignored_tokens()
         batch_size = len(text_index)
         for batch_idx in range(batch_size):
@@ -107,15 +109,17 @@ class CTCLabelDecode:
             else:
                 conf_list = [1] * len(selection)
 
-            if len(conf_list) == 0:
-                conf_list = [0]
+            # 空文字のときに平均が NaN にならないよう最低1要素保証（既存挙動）
+            mean_src = conf_list if len(conf_list) > 0 else [0]
 
             char_list = [
                 self.character[text_id] for text_id in token_indices[selection]
             ]
             text = "".join(char_list)
 
-            result_list.append((text, np.mean(conf_list).round(5).tolist()))
+            result_list.append((text, np.mean(mean_src).round(5).tolist()))
+            # 文字数と対応するスコア配列をそのまま保存（len(text) == len(conf_list)）
+            char_scores_list.append(conf_list)
 
             if return_word_box:
                 rec_word_info = self.get_word_info(text, selection)
@@ -124,7 +128,7 @@ class CTCLabelDecode:
                 )
                 rec_word_info.confs = conf_list
                 result_words_list.append(rec_word_info)
-        return result_list, result_words_list
+        return result_list, result_words_list, char_scores_list
 
     @staticmethod
     def get_word_info(text: str, selection: np.ndarray) -> WordInfo:

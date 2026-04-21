@@ -14,7 +14,7 @@
 import math
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import cv2
 import numpy as np
@@ -97,6 +97,8 @@ class TextRecognizer:
 
         img_num = len(img_list)
         rec_res = [("", 0.0)] * img_num
+        # 元の入力順に文字単位スコアを保持
+        char_scores_res: List[List[float]] = [[] for _ in range(img_num)]
 
         batch_num = self.rec_batch_num
         elapse = 0
@@ -120,7 +122,7 @@ class TextRecognizer:
             norm_img_batch = np.concatenate(norm_img_batch).astype(np.float32)
 
             preds = self.session(norm_img_batch)
-            line_results, word_results = self.postprocess_op(
+            line_results, word_results, char_scores_batch = self.postprocess_op(
                 preds,
                 return_word_box,
                 wh_ratio_list=wh_ratio_list,
@@ -128,11 +130,13 @@ class TextRecognizer:
             )
 
             for rno, one_res in enumerate(line_results):
+                target_idx = indices[beg_img_no + rno]
+                char_scores_res[target_idx] = char_scores_batch[rno]
                 if return_word_box:
-                    rec_res[indices[beg_img_no + rno]] = (one_res, word_results[rno])
+                    rec_res[target_idx] = (one_res, word_results[rno])
                     continue
 
-                rec_res[indices[beg_img_no + rno]] = (one_res, None)
+                rec_res[target_idx] = (one_res, None)
 
         all_line_results, all_word_results = list(zip(*rec_res))
         txts, scores = list(zip(*all_line_results))
@@ -145,6 +149,7 @@ class TextRecognizer:
             img_list,
             txts,
             scores,
+            tuple(char_scores_res),
             all_word_results,
             elapse,
             viser=VisRes(lang_type=self.cfg.lang_type, font_path=self.cfg.font_path),
