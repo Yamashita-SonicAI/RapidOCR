@@ -201,6 +201,10 @@ class RapidOCR:
                 rec_res.char_scores = tuple(
                     filter_by_indices(list(rec_res.char_scores), valid_ids)
                 )
+            # Cls 出力（"0"/"180" ラベル）も検出ボックスと同じインデックスで揃っているので、
+            # 空 txt 行を取り除くフィルタを同様に適用する。
+            if cls_res.cls_res is not None:
+                cls_res.cls_res = filter_by_indices(cls_res.cls_res, valid_ids)
 
             cropped_img_list = filter_by_indices(cropped_img_list, valid_ids)
 
@@ -233,12 +237,21 @@ class RapidOCR:
                 cropped_img_list, det_res.boxes, rec_res
             )
 
+        # Cls の (label, score) タプル列からラベルだけを取り出して、行単位の cls_labels に整形する。
+        # use_cls=False や Cls 未走行のパスでは cls_res.cls_res が None なので cls_labels も None のまま。
+        cls_labels = (
+            tuple(label for label, _ in cls_res.cls_res)
+            if cls_res.cls_res is not None
+            else None
+        )
+
         ocr_res = RapidOCROutput(
             img=ori_img,
             boxes=det_res.boxes,
             txts=rec_res.txts,
             scores=rec_res.scores,
             char_scores=rec_res.char_scores if rec_res.char_scores else None,
+            cls_labels=cls_labels,
             word_results=rec_res.word_results,
             elapse_list=[det_res.elapse, cls_res.elapse, rec_res.elapse],
             viser=self._viser,
@@ -340,7 +353,9 @@ class RapidOCR:
     def filter_by_text_score(self, ocr_res: RapidOCROutput) -> RapidOCROutput:
         filter_boxes, filter_txts, filter_scores, filter_words = [], [], [], []
         filter_char_scores: List[List[float]] = []
+        filter_cls_labels: List[str] = []
         has_char_scores = ocr_res.char_scores is not None
+        has_cls_labels = ocr_res.cls_labels is not None
         for i, (box, txt, score) in enumerate(
             zip(ocr_res.boxes, ocr_res.txts, ocr_res.scores)
         ):
@@ -355,6 +370,8 @@ class RapidOCR:
             filter_scores.append(score)
             if has_char_scores:
                 filter_char_scores.append(ocr_res.char_scores[i])
+            if has_cls_labels:
+                filter_cls_labels.append(ocr_res.cls_labels[i])
 
         ocr_res.boxes = np.array(filter_boxes)
         ocr_res.txts = tuple(filter_txts)
@@ -362,6 +379,8 @@ class RapidOCR:
         ocr_res.word_results = tuple(filter_words)
         if has_char_scores:
             ocr_res.char_scores = tuple(filter_char_scores)
+        if has_cls_labels:
+            ocr_res.cls_labels = tuple(filter_cls_labels)
         return ocr_res
 
 

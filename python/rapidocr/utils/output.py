@@ -21,6 +21,9 @@ class RapidOCROutput:
     scores: Optional[Tuple[float]] = None
     # 行ごとの文字単位信頼度。len(char_scores[i]) == len(txts[i])
     char_scores: Optional[Tuple[List[float], ...]] = None
+    # 行ごとの Cls 出力ラベル。"0"（正方向）または "180"（180度回転）。
+    # use_cls=False のとき、または Cls が走らないパスでは None。
+    cls_labels: Optional[Tuple[str, ...]] = None
     word_results: Tuple[Tuple[str, float, Optional[List[List[int]]]]] = (
         ("", 1.0, None),
     )
